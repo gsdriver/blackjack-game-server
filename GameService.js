@@ -43,6 +43,7 @@ module.exports = {
         {
             if (result)
             {
+//                game = ConvertGameFromVersion(result);
                 game = JSON.parse(result);
             }
             else
@@ -54,7 +55,7 @@ module.exports = {
             }
 
             // Let's return this
-            callback(GetGameJSONResponse(game, null));
+            callback(null, GetGameJSONResponse(game));
         });
     },
     UserAction: function (guid, action, value, callback) {
@@ -70,7 +71,7 @@ module.exports = {
                 // This is an error condition - we can't take action if we can't look-up in the cache
                 // It probably means that the client needs to clear their cookies
                 // Yeah, I should do better error handling
-                callback(null);
+                callback("Invalid ID", null);
                 return;
             }
 
@@ -78,7 +79,7 @@ module.exports = {
             if ((action != "setrules") && (game.possibleActions.indexOf[action] < 0))
             {
                 // I'm sorry Dave, I can't do that
-                callback(GetGameJSONResponse(game, "invalidaction"));
+                callback("Invalid action", GetGameJSONResponse(game));
                 return;    
             }
 
@@ -112,17 +113,17 @@ module.exports = {
                     // Validate the bet and deal the next hand
                     if (value < minBet)
                     {
-                        callback(GetGameJSONResponse(game, "bettoosmall"));
+                        callback("bettoosmall", GetGameJSONResponse(game));
                         return;
                     }
                     else if (value > game.bankroll)
                     {
-                        callback(GetGameJSONResponse(game, "betoverbankroll"));
+                        callback("betoverbankroll", GetGameJSONResponse(game));
                         return;
                     }
                     else if (value > maxBet)
                     {
-                        callback(GetGameJSONResponse(game, "bettoolarge"));
+                        callback("bettoolarge", GetGameJSONResponse(game));
                         return;
                     }
                     Deal(game, value);
@@ -197,7 +198,7 @@ module.exports = {
 
                 default:
                     // Hmm .. how did this not get caught above?
-                    callback(null);
+                    callback("Unknown Action", GetGameJSONResponse(game));
                     return;
             }
 
@@ -217,7 +218,7 @@ module.exports = {
             gameCache.set(guid, JSON.stringify(game));
 
             // We're done!
-            callback(GetGameJSONResponse(game, null));
+            callback(null, GetGameJSONResponse(game));
         });
     }
 }; 
@@ -226,9 +227,10 @@ module.exports = {
  * Internal functions
  */
 
-function GetGameJSONResponse(game, error)
+function GetGameJSONResponse(game)
 {
     // OK, copy over the relevant information into the JSON object that will be returned
+    // BUGBUG - Add version
     var gameState = {"activePlayer":game.activePlayer,
                         "currentPlayerHand":game.currentPlayerHand,
                         "bankroll":game.bankroll,
@@ -236,8 +238,7 @@ function GetGameJSONResponse(game, error)
                         "dealerHand":{outcome:game.dealerHand.outcome, cards:[]},
                         "playerHands":game.playerHands,
                         "lastBet":game.lastBet,
-                        "houseRules":game.rules,
-                        "error":error};
+                        "houseRules":game.rules};
 
     // Need to copy over the dealer hand (don't show the hole card if it shouldn't be shown)
     var i = 0;

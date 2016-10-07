@@ -37,10 +37,10 @@ const server = http.createServer((req, res) => {
       }
 
         // We are going to call the Game service to get a JSON representation of the game
-        gameService.GetGameState(userID, function(gameState)
+        gameService.GetGameState(userID, function(error, gameState)
         {
             // Now translate this into an HTML response
-            var response = TranslateGameToHTML(gameState);
+            var response = TranslateGameToHTML(error, gameState);
       
             // OK, set the response
             res.statusCode = 200;
@@ -96,23 +96,22 @@ const server = http.createServer((req, res) => {
                   userID = cookies["BJTutorSession"];
 
                   // OK, next action
-                  gameService.UserAction(userID, action, value, function(gameState)
+                  gameService.UserAction(userID, action, value, function(error, gameState)
                   {
-                      //  If there was an error, try to clear the cookie
-                      if (gameState)
+                      // If you get "invalid id" error, then clear the cookie
+                      if (error == "Invalid ID")
+                      {
+                          res.setHeader('Set-Cookie', 'BJTutorSession=');
+                      }
+                      else
                       {
                           // Now translate this into an HTML response
-                          var response = TranslateGameToHTML(gameState);
+                          var response = TranslateGameToHTML(error, gameState);
       
                           // OK, set the response
                           res.statusCode = 200;
                           res.setHeader('Content-Type', 'text/html');
                           res.end(response);
-                      }
-                      else
-                      {
-                          // We need to clear the cookie
-                          res.setHeader('Set-Cookie', 'BJTutorSession=');
                       }
                   });
               }
@@ -161,13 +160,13 @@ function parseCookies(request)
     return list;
 }
 
-function TranslateGameToHTML(gameState)
+function TranslateGameToHTML(error, gameState)
 {
     // Show the dealer's hand, then show the player's hand, then show the action buttons
     // Yes, pretty boring but we are just getting started
     var htmlText = "";
     var handTotal;
-    var error = GameError(gameState);
+    var error = GameError(error, gameState);
     
     htmlText += "<HTML><style>input[type=\'submit\']{font-size:36px;padding:10px;}</style>\r\n<style>input[type=\'number\']{font-size:36px;width:150px;}</style>\r\n";
     htmlText += "<style>button.link { background:none;border:none; }</style>\r\n";
@@ -300,7 +299,7 @@ function HandOutcome(playerHand)
     return (index > -1) ? outcomeMapping[index + 1] : null;
 }
 
-function GameError(gameState)
+function GameError(error, gameState)
 {
     // Should probably do this in a localizable file too
     var errorMapping = [   "invalidaction", "Unrecognized action",
@@ -308,7 +307,7 @@ function GameError(gameState)
                            "bettoolarge", "Bet cannot exceed $" + gameState.houseRules.maxBet,
                            "betoverbankroll", "Bet cannot exceed your bankroll"];
 
-    var index = errorMapping.indexOf(gameState.error);
+    var index = errorMapping.indexOf(error);
     return (index > -1) ? errorMapping[index + 1] : null;
 }
 
@@ -465,7 +464,7 @@ function RulesSummary(rules)
     if (iDouble > -1)
     {
         text += "Double on " + doubleMapping[iDouble + 1] + ". ";
-        text += "Double after split " + ((rules.doubleaftersplit == "none") ? "allowed. " : "not allowed. ");
+        text += "Double after split " + ((rules.doubleaftersplit == "none") ? "not allowed. " : "allowed. ");
     }
 
     // Splitting (only metion if you can resplit aces 'cuz that's uncommon)
