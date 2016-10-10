@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+<head>
+<style>input[type='submit']{font-size:36px;padding:10px;}</style>
+<style>input[type='checkbox']{transform: scale(1.5);}</style>
+<style>input[type='radio']{transform: scale(1.5);}</style>
+<style>input[type='number']{font-size:36px;width:150px;}</style>
+<style>legend{font-size:24px;}</style>
+<style>button.link { background:none;border:none; }</style>
+</head>
+
+<body>
+
+<div id="angDiv" ng-app="myApp" ng-controller="myCtrl">
+    {{myWelcome}}
+<div id="gameDiv" ng-show="ShowGameBoard()">
+<TABLE style="width:100%">
+<!-- Start with game rules -->
+<TR><TD colspan="2" align="center">
+<button ng-show="ShowChangeRules()" ng-click="OnRulesClick()" id="gamerules" class="link"><h2>{{RulesSummary(gameState.houseRules)}}</h2></button>
+<div ng-hide="ShowChangeRules()"><h2>{{RulesSummary(gameState.houseRules)}}</h2></div>
+</TD></TR>
+<!-- Now the dealer's hand-->
+<TR><TD><H1>{{HandTitle(gameState.dealerHand, true, (gameState.activePlayer == "player"))}}<FONT COLOR="red">{{HandOutcome(gameState.dealerHand, true, (gameState.activePlayer == "player"))}}</FONT></H1><P><P>
+<IMG ng-repeat="card in gameState.dealerHand.cards" SRC={{CardImage(card)}} width="200" height="auto" ">
+<!-- And each of the player's hands-->
+<P ng-repeat-start="hand in gameState.playerHands"><H1>{{HandTitle(hand, false, false)}}<FONT COLOR="red">{{HandOutcome(hand, false, false)}}</FONT></H1><P>
+<IMG ng-repeat="card in hand.cards" SRC={{CardImage(card)}} width="200" height="auto" ">
+<P ng-repeat-end>
+<!-- Bet information-->
+</TD><TD width=300px valign=top><H2>Bankroll: ${{gameState.bankroll}}</H2>
+<H2 ng-show="{{ShowBet()}}">Bet: ${{gameState.playerHands[0].bet}}</H2>
+<!-- Possible actions-->
+<form ng-repeat-start="action in gameState.possibleActions">
+<H2 ng-show="action == 'bet'">Place your bet:</H2>
+<input ng-show="action == 'bet'" type ="number" value="{{gameState.lastBet}}" name="value">
+<input type="submit" ng-click="SendAction(action)" value={{NextActionText(action)}}>
+</form><BR><BR ng-repeat-end>
+<!-- Don't forget suggest -->
+<form ng-show="ShowSuggestButton()">
+<input type="submit" value="Suggested Action" ng-click="GetSuggestion()">
+</form>
+</TD></TR></TABLE>
+</div>
+
+<div id="rulesDiv" ng-show="ShowRulesWindow()">
+<form>
+<fieldset><legend>Playing options</legend>
+<input type ="checkbox" name="doubleaftersplit" ng-checked="{{gameState.houseRules.doubleaftersplit}}"> Double after split
+<input type ="checkbox" name="resplitAces" ng-checked="{{gameState.houseRules.resplitAces}}"> Allow resplit aces
+<input type ="checkbox" name="hitSoft17" ng-checked="{{gameState.houseRules.hitSoft17}}"> Dealer hits soft 17
+</fieldset><BR>
+<fieldset><legend>Number of Decks</legend>
+<input type="radio" ng-model="gameState.houseRules.numberOfDecks" name="numberOfDecks" value="1"> 1
+<input type="radio" ng-model="gameState.houseRules.numberOfDecks" name="numberOfDecks" value="2"> 2
+<input type="radio" ng-model="gameState.houseRules.numberOfDecks" name="numberOfDecks" value="4"> 4
+<input type="radio" ng-model="gameState.houseRules.numberOfDecks" name="numberOfDecks" value="6"> 6
+<input type="radio" ng-model="gameState.houseRules.numberOfDecks" name="numberOfDecks" value="8"> 8
+</fieldset><BR>
+<fieldset><legend>Double Down</legend>
+<input type="radio" ng-model="gameState.houseRules.double" name="double" value="any"> Any two cards
+<input type="radio" ng-model="gameState.houseRules.double" name="double" value="10or11"> 10 or 11 only
+<input type="radio" ng-model="gameState.houseRules.double" name="double" value="9or10or11"> 9, 10, or 11 only
+<input type="radio" ng-model="gameState.houseRules.double" name="double" value="none"> Not offered
+</fieldset><BR>
+<fieldset><legend>Blackjack Bonus</legend>
+<input type="radio" ng-model="gameState.houseRules.blackjackBonus" name="blackjackBonus" value="0.5"> 3 to 2
+<input type="radio" ng-model="gameState.houseRules.blackjackBonus" name="blackjackBonus" value="0.2"> 6 to 5
+<input type="radio" ng-model="gameState.houseRules.blackjackBonus" name="blackjackBonus" value="0"> Even money
+</fieldset><BR>
+<fieldset><legend>Surrender options</legend>
+<input type="radio" ng-model="gameState.houseRules.surrender" name ="surrender" value="none"> Not allowed
+<input type="radio" ng-model="gameState.houseRules.surrender" name ="surrender" value="late"> Late (after dealer checks for blackjack)
+<input type="radio" ng-model="gameState.houseRules.surrender" name ="surrender" value="early"> Early (before dealer checks for blackjack)
+</fieldset><BR>
+<input type="submit" value="Change Rules" ng-click="ChangeRules()">
+</form>
+</div>
+
+</body>
+<script src="js\BJTutor.js"></script>
+
+</div>
+</HTML>

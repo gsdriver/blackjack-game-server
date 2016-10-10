@@ -15,7 +15,7 @@ gameCache.on('connect', function() {
 var defaultRules = {hitSoft17:false,         // Does dealer hit soft 17
              surrender:"late",        // Surrender offered - none, late, or early
              double:"any",            // Double rules - none, 10or11, 9or10or11, any
-             doubleaftersplit:"any",  // Can double after split - none, 10or11, 9or10or11, any
+             doubleaftersplit:true,   // Can double after split - none, 10or11, 9or10or11, any
              resplitAces:false,       // Can you resplit aces
              blackjackBonus:0.5,      // Bonus for player blackjack, usually 0.5 or 0.2
              numberOfDecks:1,         // Number of decks in play
@@ -41,15 +41,11 @@ module.exports = {
 
         gameCache.get(guid, function(error, result)
         {
-            if (result)
-            {
-//                game = ConvertGameFromVersion(result);
-                game = JSON.parse(result);
-            }
-            else
+            game = ConvertCacheResultToGame(result);
+            if (!game)
             {
                 // Oh, it doesn't exist - so we'll start a new game and save to cache
-                game = InitializeGame();
+                game = InitializeGame(guid);
                 gameCache.set(guid, JSON.stringify(game));
                 gameCache.expire(guid, 60*60*24); // Expire this session after one day
             }
@@ -58,13 +54,42 @@ module.exports = {
             callback(null, GetGameJSONResponse(game));
         });
     },
+    GetRecommendedAction: function (guid, callback) {
+        var game; // The internal, full state of the game
+
+        gameCache.get(guid, function(error, result)
+        {
+            // A valid game state is required if you want a recommended action
+            if (!result)
+            {
+                callback("Invalid ID", null);
+            }
+            else
+            {
+                game = ConvertCacheResultToGame(result);
+                if (game)
+                {
+                    callback(null, GetRecommendedPlayerAction(game));
+                }
+                else
+                {
+                    callback("Current game state expired", null);
+                }
+            }
+        });
+    },
     UserAction: function (guid, action, value, callback) {
         // Get the game from the cache
         gameCache.get(guid, function(error, result)
         {
             if (result)
             {
-                game = JSON.parse(result);
+                game = ConvertCacheResultToGame(result);
+                if (!game)
+                {
+                    callback("Current game state expired", null);
+                    return;
+                }
             }
             else
             {
@@ -134,7 +159,7 @@ module.exports = {
                     game.playerHands[game.currentPlayerHand].cards.push(game.deck.cards.shift());
 
                     // If they busted, it is the dealer's turn
-                    if (HandTotal(game.playerHands[game.currentPlayerHand].cards) > 21)
+                    if (HandTotal(game.playerHands[game.currentPlayerHand].cards).total > 21)
                     {
                         // Sorry, you lose - it's the dealer's turn now
                         game.playerHands[game.currentPlayerHand].busted = true;
@@ -154,7 +179,7 @@ module.exports = {
                 case "noinsurance":
                     // OK, check if the dealer has 21 - if so, game is over
                     game.specialState = action;
-                    if (HandTotal(game.dealerHand.cards) == 21)
+                    if (HandTotal(game.dealerHand.cards).total == 21)
                     {
                         // Game over (go to the dealer)
                         game.dealerHand.outcome = "dealerblackjack";
@@ -227,11 +252,34 @@ module.exports = {
  * Internal functions
  */
 
+function ConvertCacheResultToGame(result)
+{
+    var game;
+
+    // OK, let's parse 
+    if (result)
+    {
+        game = JSON.parse(result);
+
+        // Will add versioning checks later - for now just make sure the version is there and set to 1
+        // If it's not, we will return null and force a new game to be initialized
+        if (game.version && (game.version == 1))
+        {
+            // OK, this works
+            return game;
+        }
+    }
+    
+    // Sorry, no game for you
+    return null;
+}
+
 function GetGameJSONResponse(game)
 {
     // OK, copy over the relevant information into the JSON object that will be returned
     // BUGBUG - Add version
-    var gameState = {"activePlayer":game.activePlayer,
+    var gameState = {"userID":game.userID,
+                        "activePlayer":game.activePlayer,
                         "currentPlayerHand":game.currentPlayerHand,
                         "bankroll":game.bankroll,
                         "possibleActions":game.possibleActions,
@@ -324,9 +372,11 @@ function ShuffleDeck(game)
     game.playerHands = [];
 }
 
-function InitializeGame()
+function InitializeGame(guid)
 {
-    var game = { deck:{cards:[]},
+    var game = { version:1, 
+                 userID:guid,
+                 deck:{cards:[]},
                  dealerHand:{cards:[]},
                  playerHands:[],
                  rules:{},
@@ -342,7 +392,7 @@ function InitializeGame()
     game.rules = {hitSoft17:false,    // Does dealer hit soft 17
              surrender:"late",        // Surrender offered - none, late, or early
              double:"any",            // Double rules - none, 10or11, 9or10or11, any
-             doubleaftersplit:"any",  // Can double after split - none, 10or11, 9or10or11, any
+             doubleaftersplit:true,   // Can double after split - none, 10or11, 9or10or11, any
              resplitAces:false,       // Can you resplit aces
              blackjackBonus:0.5,      // Bonus for player blackjack, usually 0.5 or 0.2
              numberOfDecks:1,         // Number of decks in play
@@ -358,45 +408,38 @@ function InitializeGame()
     return game;
 }
 
-function AceInHand(cards)
-{
-    var hasAces = false;
-
-    for (var i = 0; i < cards.length; i++)
-    {
-        if (cards[i].rank == 1)
-        {
-            hasAces = true;
-            break;
-        }
-    }
-
-    return hasAces;
-}
-
 function HandTotal(cards)
 {
-    var total = 0;
+    var retval = {total:0, soft:false};
+    var hasAces = false;
 
     for (var i = 0; i < cards.length; i++)
     {
         if (cards[i].rank > 10)
         {
-            total += 10;
+            retval.total += 10;
         }
         else
         {
-            total += cards[i].rank;
+            retval.total += cards[i].rank;
+        }
+
+        // Note if there's an ace
+        if (cards[i].rank == 1)
+        {
+            hasAces = true;
         }
     }
 
     // If there are aces, add 10 to the total (unless it would go over 21)
-    if ((total <= 11) && AceInHand(cards))
+    // Note that in this case the hand is soft
+    if ((retval.total <= 11) && hasAces)
     {
-        total += 10;
+        retval.total += 10;
+        retval.soft = true;
     }
 
-    return total;
+    return retval;
 }
 
 function SetNextActions(game)
@@ -442,8 +485,8 @@ function SetNextActions(game)
         if (!splitAces && (game.playerHands[game.currentPlayerHand].bet <= game.bankroll))
         {
             // Whether you can double is dictated by either the rules.double or rules.doubleaftersplit variable
-            var doubleRules = (game.playerHands.length == 1) ? game.rules.double : game.rules.doubleaftersplit;
-            var playerTotal = HandTotal(game.playerHands[game.currentPlayerHand].cards);
+            var doubleRules = (game.playerHands.length == 1) ? game.rules.double : (game.rules.doubleaftersplit ? game.rules.double : "none");
+            var playerTotal = HandTotal(game.playerHands[game.currentPlayerHand].cards).total;
             switch (doubleRules)
             {
                 case "any":
@@ -494,7 +537,7 @@ function SetNextActions(game)
         game.possibleActions.unshift("stand");
         
         // You can hit as long as you don't have 21 
-        if (HandTotal(game.playerHands[game.currentPlayerHand].cards) < 21)
+        if (HandTotal(game.playerHands[game.currentPlayerHand].cards).total < 21)
         {
             // One more case - if you split Aces you only get one card (so you can't hit)
             if (!splitAces)
@@ -531,7 +574,7 @@ function NextHand(game)
     {
         // It is the player's turn -- UNLESS the dealer has a blackjack with a 10 up
         // In that case, the hand is immediately over (goes to the dealer's turn)
-        if ((HandTotal(game.dealerHand.cards) == 21) && (game.dealerHand.cards[1].rank != 1))
+        if ((HandTotal(game.dealerHand.cards).total == 21) && (game.dealerHand.cards[1].rank != 1))
         {
             // OK, mark it as the dealer's turn to cause the card to flip and end the game
             game.activePlayer = "dealer";
@@ -569,9 +612,9 @@ function NextHand(game)
 function PlayDealerHand(game)
 {
     var takeCard;
-    var total = HandTotal(game.dealerHand.cards);
+    var handValue = HandTotal(game.dealerHand.cards);
     var allPlayerHandsBusted = true; // Assume everyone busted until proven otherwise
-    var playerBlackjack = ((game.playerHands.length == 1) && (HandTotal(game.playerHands[0].cards) == 21) && (game.playerHands[0].cards.length == 2));
+    var playerBlackjack = ((game.playerHands.length == 1) && (HandTotal(game.playerHands[0].cards).total == 21) && (game.playerHands[0].cards.length == 2));
 
     // If all players have busted, we won't play thru
     for (var i = 0; i < game.playerHands.length; i++)
@@ -587,10 +630,10 @@ function PlayDealerHand(game)
     // If all hands busted, or player has blackjack, or player surrendered we don't play
     if (!allPlayerHandsBusted && !playerBlackjack && (game.specialState != "surrender"))
     {
-        while ((total < 17) || ((total == 17) && game.rules.hitSoft17 && AceInHand(game.dealerHand.cards)))
+        while ((handValue.total < 17) || ((handValue.total == 17) && game.rules.hitSoft17 && handValue.soft))
         {
             game.dealerHand.cards.push(game.deck.cards.shift());
-            total = HandTotal(game.dealerHand.cards);
+            handValue = HandTotal(game.dealerHand.cards);
         }
     }
 
@@ -600,8 +643,8 @@ function PlayDealerHand(game)
 
 function DetermineWinner(game, playerHand)
 {
-    var dealerTotal = HandTotal(game.dealerHand.cards);
-    var playerTotal = HandTotal(playerHand.cards);
+    var dealerTotal = HandTotal(game.dealerHand.cards).total;
+    var playerTotal = HandTotal(playerHand.cards).total;
     var dealerBlackjack = ((dealerTotal == 21) && (game.dealerHand.cards.length == 2));
     var playerBlackjack = ((game.playerHands.length == 1) && (playerTotal == 21) && (playerHand.cards.length == 2));
 
@@ -675,4 +718,286 @@ function DetermineWinner(game, playerHand)
             // I already took the money off the bankroll, you don't get any back
             break;
     }
+}
+
+// Recommended actions follow Basic Strategy, based on the rules currently in play
+function GetRecommendedPlayerAction(game)
+{
+    // If it's not your turn, we have no recommendation
+    if (game.activePlayer != "player")
+    {
+        return "none";
+    }
+
+    // First rule - never take insurance
+    if (game.possibleActions.indexOf("insurance") > -1)
+    {
+        return "noinsurance";    
+    }
+
+    // OK, let's look at the player total, cards, and the dealer up card
+    var playerHand = game.playerHands[game.currentPlayerHand];
+    var dealerCard = (game.dealerHand.cards[1].rank > 10) ? 10 : game.dealerHand.cards[1].rank;
+
+    // Check each situation
+    if (ShouldPlayerSplit(game, playerHand, dealerCard))
+    {
+        return "split";
+    }
+    else if (ShouldPlayerDouble(game, playerHand, dealerCard))
+    {
+        return "double";
+    }
+    else if (ShouldPlayerSurrender(game, playerHand, dealerCard))
+    {
+        return "surrender";
+    }
+    else if (ShouldPlayerStand(game, playerHand, dealerCard))
+    {
+        return "stand";
+    }
+    else if (ShouldPlayerHit(game, playerHand, dealerCard))
+    {
+        return "hit";
+    }
+
+    // I got nothing
+    return "none";
+}
+
+function ShouldPlayerSplit(game, playerHand, dealerCard)
+{
+    var shouldSplit = false;
+
+    // It needs to be a possible action
+    if (game.possibleActions.indexOf("split") > -1)
+    {
+        switch (playerHand.cards[0].rank)
+        {
+            case 1:
+                // Always split aces
+                shouldSplit = true;
+                break;
+            case 2:
+            case 3:
+                // Against 4-7, or 2 and 3 if you can double after split
+                shouldSplit = ((dealerCard > 3) && (dealerCard < 8)) || (((dealerCard == 2) || (dealerCard == 3)) && (game.rules.doubleaftersplit));
+                break;
+            case 4:
+                // Against 5 or 6, and only if you can double after split
+                shouldSplit = ((dealerCard == 5) || (dealerCard == 6)) && (game.rules.doubleaftersplit);
+                break;
+            case 6:
+                // Split 3-6, or against a 2 if double after split is allowed
+                shouldSplit = ((dealerCard > 2) && (dealerCard < 7)) || ((dealerCard == 2) && (game.rules.doubleaftersplit));
+                break;
+            case 7:
+                // Split on 2-7
+                shouldSplit = ((dealerCard > 1) && (dealerCard < 8));
+                break;
+            case 8:
+                // Always split 8s UNLESS the dealer has a 10 and hits soft 17 and you can't surrender (who knew)
+                shouldSplit = !((dealerCard == 10) && (game.rules.hitSoft17) && (game.rules.surrender != "none"));
+                break;
+            case 9:
+                // Split against 2-9 except 7
+                shouldSplit = ((dealerCard > 1) && (dealerCard < 10) && (dealerCard != 7));
+                break;
+            case 5:
+            case 10:
+            case 11:
+            case 12:
+            case 13:
+            default:
+                // Don't split 5s or 10s ... or cards I don't know
+                break;
+        }
+    }
+
+    return shouldSplit;
+}
+
+function ShouldPlayerDouble(game, playerHand, dealerCard)
+{
+    var shouldDouble = false;
+
+    // It needs to be a possible action
+    if (game.possibleActions.indexOf("double") > -1)
+    {
+        // Need to know the hand total and whether it's soft
+        var handValue = HandTotal(playerHand.cards);
+
+        if (handValue.soft)
+        {
+            // Let's look at the non-ace card to determine what to do (get this by the total)
+            switch (handValue.total)
+            {
+                case 13:
+                case 14:
+                    // Double against dealer 5 or 6
+                    shouldDouble = (dealerCard == 5) || (dealerCard == 6);
+                    break;
+                case 15:
+                case 16:
+                    // Double against dealer 4-6
+                    shouldDouble = (dealerCard >= 4) && (dealerCard <= 6);
+                    break;
+                case 17:
+                    // Double against 3-6
+                    shouldDouble = (dealerCard >= 3) && (dealerCard <= 6);
+                    break;
+                case 18:
+                    // Double against 3-6 - also 2 if the dealer hits soft 17
+                    shouldDouble = (dealerCard >= 3 && (dealerCard <= 6)) || ((dealerCard == 2) && game.rules.hitSoft17);
+                    break;
+                case 19:
+                    // Double against 6 if the dealer hits soft 17
+                    shouldDouble = (dealerCard == 6) && game.rules.hitSoft17;
+                    break;
+                default:
+                    // Don't double
+                    break;
+            }
+        }
+        else
+        {
+            // Double on 9, 10, or 11 only
+            switch (handValue.total)
+            {
+                case 9:
+                    // Double 3-6
+                    shouldDouble = (dealerCard >= 3) && (dealerCard <= 6);
+                    break;
+                case 10:
+                    // Double 2-9
+                    shouldDouble = (dealerCard >= 2) && (dealerCard <= 9);
+                    break;
+                case 11:
+                    // Double anything except an ace (and then only if the dealer doesn't hit soft 17)
+                    shouldDouble = !((dealerCard == 1) && !game.rules.hitSoft17);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    return shouldDouble;
+}
+
+function ShouldPlayerSurrender(game, playerHand, dealerCard)
+{
+    var shouldSurrender = false;
+
+    // It needs to be a possible action
+    if (game.possibleActions.indexOf("surrender") > -1)
+    {
+        var handValue = HandTotal(playerHand.cards);
+
+        // BUGBUG - add early surrender rules too: http://wizardofodds.com/games/blackjack/appendix/6/
+        if (game.rules.hitSoft17)
+        {
+            // Don't surrender a soft hand
+            if (!handValue.soft)
+            {
+                switch (handValue.total)
+                {
+                    case 15:
+                        // Surrender against 10 or Ace
+                        shouldSurrender = (dealerCard == 10) || (dealerCard == 1);
+                    case 16:
+                        // Surrender against 9-Ace unless it's a pair of 8s in which case only against ace
+                        if (dealerCard == 1)
+                        {
+                            shouldSurrender = true;
+                        }
+                        else
+                        {
+                            shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10));
+                        }
+                        break;
+                    case 17:
+                        // Surrender against ace
+                        shouldSurrender = (dealerCard == 1);
+                        break;
+                    default:
+                        // Don't surender
+                        break;
+                }
+            }
+            else
+            {
+                // We're less likely to surrender - 15 against 10, 16 (non-8s) against 9-Ace
+                if (handValue.total == 15)
+                {
+                    shouldSurrender == (dealerCard == 10);
+                }
+                else if (handValue.total == 16)
+                {
+                    shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10) || (dealerCard == 1));
+                }
+            }
+        }
+    }
+
+    return shouldSurrender;    
+}
+
+function ShouldPlayerStand(game, playerHand, dealerCard)
+{
+    var shouldStand = false;
+
+    // It needs to be a possible action (also note this is last action so we already told them not to double/surrender/etc)
+    if (game.possibleActions.indexOf("stand") > -1)
+    {
+        var handValue = HandTotal(playerHand.cards);
+
+        if (handValue.soft)
+        {
+            // Don't stand until you hit 18
+            if (handValue.total > 18)
+            {
+                shouldStand = true;
+            }
+            else if (handValue.total == 18)
+            {
+                // Stand against dealer 2-8
+                shouldStand = (handValue.total >= 2) && (handValue.total <= 8);
+            }
+        }
+        else
+        {
+            // Stand on 17 or above
+            if (handValue.total > 16)
+            {
+                shouldStand = true;
+            }
+            else if (handValue.total > 12)
+            {
+                // 13-16 you should stand against dealer 2-6
+                shouldStand = (dealerCard >= 2) && (dealerCard <= 6);
+            }
+            else if (handValue.total == 12)
+            {
+                // Stand on dealer 4-6
+                shouldStand = (dealerCard >= 4) && (dealerCard <= 6);
+            }
+        }
+    }
+
+    return shouldStand;    
+}
+
+function ShouldPlayerHit(game, playerHand, dealerCard)
+{
+    var shouldHit = false;
+
+    // It needs to be a possible action (also note this is last action so we already told them not to double/split/etc)
+    if (game.possibleActions.indexOf("hit") > -1)
+    {
+        // Well geez, I tested everything else so you should hit
+        shouldHit = true;
+    }
+
+    return shouldHit;    
 }
