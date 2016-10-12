@@ -3,9 +3,10 @@
 //
 
 // Redis cache
+var config = require('./config');
 var redis = require('redis');
-//var gameCache = redis.createClient({host:'bj-tutor-redis.djyehr.0001.usw2.cache.amazonaws.com'}); 
-var gameCache = redis.createClient();
+   
+var gameCache = redis.createClient({host: config.redisHost});
 
 gameCache.on('connect', function() {
     console.log('Redis connected');
@@ -263,7 +264,7 @@ function ConvertCacheResultToGame(result)
 
         // Will add versioning checks later - for now just make sure the version is there and set to 1
         // If it's not, we will return null and force a new game to be initialized
-        if (game.version && (game.version == 1))
+        if (game.version && (game.version == "1.0.0"))
         {
             // OK, this works
             return game;
@@ -374,7 +375,7 @@ function ShuffleDeck(game)
 
 function InitializeGame(guid)
 {
-    var game = { version:1, 
+    var game = { version:"1.0.0", 
                  userID:guid,
                  deck:{cards:[]},
                  dealerHand:{cards:[]},
@@ -729,15 +730,21 @@ function GetRecommendedPlayerAction(game)
         return "none";
     }
 
-    // First rule - never take insurance
+    // OK, let's look at the player total, cards, and the dealer up card
+    var playerHand = game.playerHands[game.currentPlayerHand];
+    var dealerCard = (game.dealerHand.cards[1].rank > 10) ? 10 : game.dealerHand.cards[1].rank;
+
+    // If early surrender is allowed, check that now (that's what early surrender means - before dealer checks for blackjack
+    if ((game.rules.surrender == "early") && (ShouldPlayerSurrender(game, playerHand, dealerCard)))
+    {
+        return "surrender";
+    }
+
+    // OK, if an ace is showing it's easy - never take insurance
     if (game.possibleActions.indexOf("insurance") > -1)
     {
         return "noinsurance";    
     }
-
-    // OK, let's look at the player total, cards, and the dealer up card
-    var playerHand = game.playerHands[game.currentPlayerHand];
-    var dealerCard = (game.dealerHand.cards[1].rank > 10) ? 10 : game.dealerHand.cards[1].rank;
 
     // Check each situation
     if (ShouldPlayerSplit(game, playerHand, dealerCard))
@@ -748,7 +755,8 @@ function GetRecommendedPlayerAction(game)
     {
         return "double";
     }
-    else if (ShouldPlayerSurrender(game, playerHand, dealerCard))
+    // Note if early surrender is allowed we already checked, so no need to check again
+    else if ((game.rules.surrender != "early") && ShouldPlayerSurrender(game, playerHand, dealerCard))
     {
         return "surrender";
     }
@@ -796,8 +804,8 @@ function ShouldPlayerSplit(game, playerHand, dealerCard)
                 shouldSplit = ((dealerCard > 1) && (dealerCard < 8));
                 break;
             case 8:
-                // Always split 8s UNLESS the dealer has a 10 and hits soft 17 and you can't surrender (who knew)
-                shouldSplit = !((dealerCard == 10) && (game.rules.hitSoft17) && (game.rules.surrender != "none"));
+                // Always split 8s UNLESS the dealer has an ace and hits soft 17 and you can't surrender (who knew)
+                shouldSplit = !((dealerCard == 1) && (game.rules.hitSoft17) && (game.rules.surrender == "none"));
                 break;
             case 9:
                 // Split against 2-9 except 7
@@ -925,17 +933,17 @@ function ShouldPlayerSurrender(game, playerHand, dealerCard)
                         break;
                 }
             }
-            else
+        }
+        else
+        {
+            // We're less likely to surrender - 15 against 10, 16 (non-8s) against 9-Ace
+            if (handValue.total == 15)
             {
-                // We're less likely to surrender - 15 against 10, 16 (non-8s) against 9-Ace
-                if (handValue.total == 15)
-                {
-                    shouldSurrender == (dealerCard == 10);
-                }
-                else if (handValue.total == 16)
-                {
-                    shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10) || (dealerCard == 1));
-                }
+                shouldSurrender == (dealerCard == 10);
+            }
+            else if (handValue.total == 16)
+            {
+                shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10) || (dealerCard == 1));
             }
         }
     }

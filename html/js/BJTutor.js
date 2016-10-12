@@ -1,7 +1,7 @@
 var app = angular.module("myApp", []);
 
 app.controller('myCtrl', function ($scope, $http) {
-    $http.get("http://localhost:3000/")
+    $http.get(config.serviceEndpoint)
     .then(function (response) {
         //$scope.gameState = { "activePlayer": "player", "currentPlayerHand": 0, "bankroll": 4150, "possibleActions": ["hit", "stand", "surrender", "double"], "dealerHand": { "outcome": "playing", "cards": [{ "rank": 0, "suit": "none" }, { "rank": 13, "suit": "hearts"}] }, "playerHands": [{ "bet": 100, "busted": false, "cards": [{ "rank": 3, "suit": "clubs" }, { "rank": 4, "suit": "diamonds"}], "outcome": "playing"}], "lastBet": "100", "houseRules": { "hitSoft17": false, "surrender": "late", "double": "any", "doubleaftersplit": true, "resplitAces": true, "blackjackBonus": "0", "numberOfDecks": 1, "minBet": 5, "maxBet": 1000} };
         $scope.gameState = response.data;
@@ -17,7 +17,7 @@ app.controller('myCtrl', function ($scope, $http) {
 
         $http.defaults.headers.post["Content-Type"] = "text/plain";
 
-        $http.post("http://localhost:3000/" + action, payload)
+        $http.post(config.serviceEndpoint + action, payload)
         .then(function (response) {
             // The response is a new game state
             $scope.gameState = response.data;
@@ -40,7 +40,7 @@ app.controller('myCtrl', function ($scope, $http) {
         // Now post these new rules to the server
         $http.defaults.headers.post["Content-Type"] = "text/plain";
 
-        $http.post("http://localhost:3000/setrules", rulesBody)
+        $http.post(config.serviceEndpoint + "setrules", rulesBody)
         .then(function (response) {
             // The response is a new game state
             $scope.gameState = response.data;
@@ -50,7 +50,7 @@ app.controller('myCtrl', function ($scope, $http) {
     };
 
     $scope.GetSuggestion = function () {
-        $http.post("http://localhost:3000/suggest", "userID=" + $scope.gameState.userID)
+        $http.post(config.serviceEndpoint + "suggest", "userID=" + $scope.gameState.userID)
         .then(function (response) {
             // The response is a JSON object with a suggestion
             if (response.data.suggestion) {
@@ -101,7 +101,7 @@ app.controller('myCtrl', function ($scope, $http) {
     };
 
     $scope.PostURL = function (action) {
-        return "http://localhost:3000/" + action;
+        return config.serviceEndpoint + action;
     };
 
     $scope.CardImage = function (card) {

@@ -243,7 +243,7 @@ function TextToRules(ruleText)
                     break;
 
                 case "doubleaftersplit":
-                    rules.doubleAfterSplit = valuePair[1];
+                    rules.doubleaftersplit = valuePair[1];
                     break;
 
                 case "resplitAces":
