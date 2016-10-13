@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "node-redis": "^0.1.7",
-    "redis": "^2.6.2"
+    "redis": "^2.6.2",
+    "node-uuid": "^1.4.7"
   },
   "devDependencies": {}
 }

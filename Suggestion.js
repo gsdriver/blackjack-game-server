@@ -186,6 +186,8 @@ function ShouldPlayerDouble(game, playerHand, dealerCard)
     return shouldDouble;
 }
 
+// Surrender rules - note we do not look at the exact composition of the hand
+// as defined as http://wizardofodds.com/games/blackjack/appendix/6/, only the player's total
 function ShouldPlayerSurrender(game, playerHand, dealerCard)
 {
     var shouldSurrender = false;
@@ -195,36 +197,71 @@ function ShouldPlayerSurrender(game, playerHand, dealerCard)
     {
         var handValue = utils.HandTotal(playerHand.cards);
 
-        // BUGBUG - add early surrender rules too: http://wizardofodds.com/games/blackjack/appendix/6/
-        if (game.rules.hitSoft17)
+        // Don't surrender a soft hand
+        if (handValue.soft)
         {
-            // Don't surrender a soft hand
-            if (!handValue.soft)
+            return false;
+        }
+
+        if (game.rules.surrender == "early")
+        {
+            if (dealerCard == 1)
             {
-                switch (handValue.total)
+                // Surrender Dealer Ace vs. hard 5-7, hard 12-17, including pair of 3's, 6's, 7's or 8's
+                // Also surender against pair of 2's if the dealer hits soft 17
+                if (((handValue.total >= 5) && (handValue.total <= 7)) || ((handValue.total >= 12) && (handValue.total <= 17)))
                 {
-                    case 15:
-                        // Surrender against 10 or Ace
-                        shouldSurrender = (dealerCard == 10) || (dealerCard == 1);
-                    case 16:
-                        // Surrender against 9-Ace unless it's a pair of 8s in which case only against ace
-                        if (dealerCard == 1)
-                        {
-                            shouldSurrender = true;
-                        }
-                        else
-                        {
-                            shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10));
-                        }
-                        break;
-                    case 17:
-                        // Surrender against ace
-                        shouldSurrender = (dealerCard == 1);
-                        break;
-                    default:
-                        // Don't surender
-                        break;
+                    shouldSurrender = true;
                 }
+                if ((playerHand.cards[0].rank == 2) && (playerHand.cards[1].rank == 2) && game.rules.hitSoft17)
+                {
+                    shouldSurrender = true;
+                }
+            }    
+            else if (dealerCard == 10)
+            {
+                // Surrender dealer 10 against a hard 14-16, including pair of 7's or 8's    
+                if ((handValue.total >= 14) && (handValue.total <= 16))
+                {
+                    // UNLESS it's a pair of 8's in single deck and double after split is allowed
+                    shouldSurrender = !((playerHand.cards[0].rank == 8) && (playerHand.cards[1].rank == 8) &&
+                                (game.rules.numberOfDecks == 1) && (game.rules.doubleaftersplit));
+                }
+            }
+            else if (dealerCard == 9)
+            {
+                // Surrender if we have 16, but no including a pair of 8's
+                if ((handValue.total == 16) && (playerHand.cards[0].rank != 8))
+                {
+                    shouldSurrender = true;
+                }
+            }
+        }
+        else if (game.rules.hitSoft17)
+        {
+            switch (handValue.total)
+            {
+                case 15:
+                    // Surrender against 10 or Ace
+                    shouldSurrender = (dealerCard == 10) || (dealerCard == 1);
+                case 16:
+                    // Surrender against 9-Ace unless it's a pair of 8s in which case only against ace
+                    if (dealerCard == 1)
+                    {
+                        shouldSurrender = true;
+                    }
+                    else
+                    {
+                        shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10));
+                    }
+                    break;
+                case 17:
+                    // Surrender against ace
+                    shouldSurrender = (dealerCard == 1);
+                    break;
+                default:
+                    // Don't surender
+                    break;
             }
         }
         else
@@ -232,11 +269,14 @@ function ShouldPlayerSurrender(game, playerHand, dealerCard)
             // We're less likely to surrender - 15 against 10, 16 (non-8s) against 9-Ace
             if (handValue.total == 15)
             {
-                shouldSurrender == (dealerCard == 10);
+                // Surrender against 10 unless it's a single deck game
+                shouldSurrender == ((dealerCard == 10) && (game.rules.numberOfDecks > 1));
             }
             else if (handValue.total == 16)
             {
-                shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 9) || (dealerCard == 10) || (dealerCard == 1));
+                // Surrender against 10 or Ace, and against 9 if there are more than 4 decks
+                shouldSurrender = (playerHand.cards[0].rank != 8) && ((dealerCard == 10) || (dealerCard == 1) 
+                            || ((dealerCard == 9) && (game.rules.numberOfDecks >= 4)));
             }
         }
     }

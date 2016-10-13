@@ -9,6 +9,7 @@ var host = process.env.HOST || 'localhost';
 
 // Helper classes (which will eventually become separate services)
 var gameService = require('./GameService');
+var utils = require('./utils');
 
 // Create the server
 const server = http.createServer((req, res) => {  
@@ -36,7 +37,7 @@ const server = http.createServer((req, res) => {
           // Do we have a user ID? If not, generate a new one and set it
           if ((action == "flushcache") || !userID)
           {
-              userID = Math.floor(Math.random() * 100000000); // A guid would be better, but let's just go with 100 mil
+              userID = utils.GenerateGUID();
               res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
           }
 

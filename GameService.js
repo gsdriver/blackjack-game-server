@@ -2,36 +2,15 @@
 // This is the Game Service module
 //
 
-// Redis cache
-var config = require('./config');
 var suggest = require('./suggestion');
 var utils = require('./utils');
-var redis = require('redis');
-var gameCache = redis.createClient({host: config.redisHost});
-
-gameCache.on('connect', function() {
-    console.log('Redis connected');
-});
-
-// These will go into a rule file at some point
-var defaultRules = {hitSoft17:false,         // Does dealer hit soft 17
-             surrender:"late",        // Surrender offered - none, late, or early
-             double:"any",            // Double rules - none, 10or11, 9or10or11, any
-             doubleaftersplit:true,   // Can double after split - none, 10or11, 9or10or11, any
-             resplitAces:false,       // Can you resplit aces
-             blackjackBonus:0.5,      // Bonus for player blackjack, usually 0.5 or 0.2
-             numberOfDecks:1,         // Number of decks in play
-             minBet:5,                // The minimum bet - not configurable
-             maxBet:1000              // The maximum bet - not configurable
-             };
+var rules = require('./rules');
 
 // Other configurations
-const maxSplitHands = 4;
-const minBet = 5;
-const maxBet = 1000;
 const cardsBeforeShuffle = 20;
 const startingBankroll = 5000;
 const startingBet = 100;
+const keyPrefix = "game:";
 
 /*
  * Exported functions
@@ -41,15 +20,15 @@ module.exports = {
     GetGameState: function (guid, callback) {
         var game; // The internal, full state of the game
 
-        gameCache.get(guid, function(error, result)
+        utils.ReadFromCache(keyPrefix + guid, function(error, result)
         {
             game = ConvertCacheResultToGame(result);
             if (!game)
             {
                 // Oh, it doesn't exist - so we'll start a new game and save to cache
                 game = InitializeGame(guid);
-                gameCache.set(guid, JSON.stringify(game));
-                gameCache.expire(guid, 60*60*24); // Expire this session after one day
+                utils.WriteToCache(keyPrefix + guid, JSON.stringify(game));
+                utils.ExpireFromCache(keyPrefix + guid, 60*60*24); // Expire this session after one day
             }
 
             // Let's return this
@@ -59,7 +38,7 @@ module.exports = {
     GetRecommendedAction: function (guid, callback) {
         var game; // The internal, full state of the game
 
-        gameCache.get(guid, function(error, result)
+        utils.ReadFromCache(keyPrefix + guid, function(error, result)
         {
             // A valid game state is required if you want a recommended action
             if (!result)
@@ -82,7 +61,7 @@ module.exports = {
     },
     UserAction: function (guid, action, value, callback) {
         // Get the game from the cache
-        gameCache.get(guid, function(error, result)
+        utils.ReadFromCache(keyPrefix + guid, function(error, result)
         {
             if (result)
             {
@@ -114,12 +93,11 @@ module.exports = {
             switch (action)
             {
                 case "setrules":
-                    // BUBGUB -- There has got to be a better way to copy and validate this user input
-                    game.rules = value;
-
-                    // Note minBet and maxBet are not to be impacted
-                    game.rules.minBet = minBet;
-                    game.rules.maxBet = maxBet;
+                    // New set of rules - this API just changes the rules in use at this table
+                    // Rather than selecting from a pre-existing set of rules or change the 
+                    // set of rules that are available to all players
+                    game.rules = rules.Validate(value);
+                    game.rules.name = "custom";
 
                     // Empty the deck and set the player to "none"
                     game.deck.cards = [];
@@ -138,7 +116,7 @@ module.exports = {
 
                 case "bet":
                     // Validate the bet and deal the next hand
-                    if (value < minBet)
+                    if (value < game.rules.minBet)
                     {
                         callback("bettoosmall", GetGameJSONResponse(game));
                         return;
@@ -148,7 +126,7 @@ module.exports = {
                         callback("betoverbankroll", GetGameJSONResponse(game));
                         return;
                     }
-                    else if (value > maxBet)
+                    else if (value > game.rules.maxBet)
                     {
                         callback("bettoolarge", GetGameJSONResponse(game));
                         return;
@@ -242,7 +220,7 @@ module.exports = {
 
             // Now figure out what the next possible actions are and write the new state back to cache
             SetNextActions(game);
-            gameCache.set(guid, JSON.stringify(game));
+            utils.WriteToCache(keyPrefix + guid, JSON.stringify(game));
 
             // We're done!
             callback(null, GetGameJSONResponse(game));
@@ -388,16 +366,7 @@ function InitializeGame(guid)
                 };
 
     // Set default rules
-    game.rules = {hitSoft17:false,    // Does dealer hit soft 17
-             surrender:"late",        // Surrender offered - none, late, or early
-             double:"any",            // Double rules - none, 10or11, 9or10or11, any
-             doubleaftersplit:true,   // Can double after split - none, 10or11, 9or10or11, any
-             resplitAces:false,       // Can you resplit aces
-             blackjackBonus:0.5,      // Bonus for player blackjack, usually 0.5 or 0.2
-             numberOfDecks:1,         // Number of decks in play
-             minBet:minBet,           // The minimum bet - not configurable
-             maxBet:maxBet            // The maximum bet - not configurable
-             };
+    game.rules = rules.GetDefaultRules();
 
     // Start by shuffling the deck
     ShuffleDeck(game);
@@ -484,7 +453,7 @@ function SetNextActions(game)
           && (game.playerHands[game.currentPlayerHand].bet <= game.bankroll))
         {
             // OK, they can split if they haven't reached the maximum number of allowable hands
-            if (game.playerHands.length < maxSplitHands)
+            if (game.playerHands.length < game.rules.maxSplitHands)
             {
                 // Oh - one more case; if they had Aces we have to check the resplit Aces rule
                 if (!splitAces || game.rules.resplitAces)
@@ -517,7 +486,7 @@ function SetNextActions(game)
         // At this point you can either bet (next hand) or shuffle if there
         // aren't enough cards.  If you are out of money (and can't cover the minimum bet), 
         // we make you first reset the bankroll
-        if (game.bankroll < minBet)
+        if (game.bankroll < game.rules.minBet)
         {
             game.possibleActions.push("resetbankroll");
         }

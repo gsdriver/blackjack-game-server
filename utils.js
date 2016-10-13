@@ -2,11 +2,46 @@
 // Utility functionals
 //
 
+var redis = require('redis');
+var uuid = require('node-uuid');
+var config = require('./config');
+var gameCache = redis.createClient({host: config.redisHost});
+
+gameCache.on('connect', function() {
+    console.log('Redis connected');
+});
+
 /*
  * Exported functions
  */
 
 module.exports = {
+    // Cache functions
+    ReadFromCache: function (key, callback) {
+        gameCache.get(key, function (error, result) {
+            callback(error, result);
+        });
+    },
+    WriteToCache: function (key, value) {
+        gameCache.set(key, value);
+    },
+    ExpireFromCache: function (key, timeout) {
+        gameCache.expire(key, timeout);
+    },
+    ReadAllKeys: function (prefix, callback) {
+        gameCache.keys(prefix, function (error, keys) {
+            if (error) {
+                callback(error, null);
+            }
+            else {
+                callback(null, keys);
+            }
+        });
+    },
+    // GUID generation
+    GenerateGUID: function () {
+        return uuid.v4();
+    },
     // Recommended actions follow Basic Strategy, based on the rules currently in play
     HandTotal: function (cards) {
         var retval = { total: 0, soft: false };
