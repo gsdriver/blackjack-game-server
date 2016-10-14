@@ -51,29 +51,45 @@ module.exports = {
     GetSavedRules : function(callback) {
         // This function reads in all the rules which have been saved in the cache
         // This allows the user to pick from a set of rules based on friendly name
-        utils.ReadAllKeys(keyPrefix, function(error, keys)
+        utils.ReadAllKeys(keyPrefix + "*", function(error, keys)
         {
             // I guess this is small enough that we can return the full structure
             // Alternate would be to just pass back the name and key, and require the
             // client to call GetRules after they've selected one they want
             var rulesToReturn = [];
-            var rules;
 
             if (error) {
                 callback(error, null);
             }
-            else {
-                for (var i = 0; i < keys.length; i++) {
-                    rules = ConvertResultToRules(result);
-                    if (rules)
-                    {
-                        // We'll just ignore ones that we can't convert
-                        // We could throw an error too (that some/all rules are corrupt)
-                        rulesToReturn.push(rules);
-                    }
-                }
+            else if (keys.length == 0)
+            {
+                // Special case if there are no rules to return, since we're handling the
+                // callback from within our for loop
+                callback(null, rulesToReturn);    
+            } else {
+                var numExecuted = 0;
 
-                callback(null, rulesToReturn);
+                for (var i = 0; i < keys.length; i++) {
+                    // We hvae a key, now read in the rules
+                    utils.ReadFromCache(keys[i], function(readError, result)
+                    {
+                        var rules = (readError) ? null : ConvertResultToRules(result);
+                        if (rules)
+                        {
+                            // We'll just ignore ones that we can't convert
+                            // We could throw an error too (that some/all rules are corrupt)
+                            rulesToReturn.push(rules);
+                        }
+
+                        // Let's see if we have processed them all and should do the callback
+                        // This is how we handle this in an aysnc loop
+                        numExecuted++;
+                        if (numExecuted == keys.length)
+                        {
+                            callback(null, rulesToReturn);
+                        }
+                    });
+                }
             }
         });
     },
@@ -82,7 +98,7 @@ module.exports = {
         var rulesWithVersion = rules;
 
         rulesWithVersion.version = "1.0.0";
-        utils.WriteToCache(keyPrefix + rules.key, rulesWithVersion);
+        utils.WriteToCache(keyPrefix + rules.key, JSON.stringify(rulesWithVersion));
     },
     GetDefaultRules : function() {
         return ConvertResultToRules(defaultRules);
@@ -107,12 +123,18 @@ module.exports = {
 function ConvertResultToRules(result)
 {
     var ruleResult = {};
+    var rules;
 
     // OK, let's parse 
     if (result)
     {
         // result can either be a string or an Object
-        rules = (typeof result == "string") ? JSON.parse(result) : ((typeof result == "object") ? result : null);
+        try {
+            rules = (typeof result == "string") ? JSON.parse(result) : ((typeof result == "object") ? result : null);
+        }
+        catch(err) {
+            rules = null;  
+        };
 
         // Will add versioning checks later - for now just make sure the version is there and set to 1
         // If it's not, we will return null and force a new game to be initialized

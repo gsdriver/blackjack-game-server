@@ -99,6 +99,11 @@ module.exports = {
                     game.rules = rules.Validate(value);
                     game.rules.name = "custom";
 
+                    // TEMP: Let me save some rules out to redis
+                    //game.rules.name = "Atlantic City";
+                    //game.rules.key = utils.GenerateGUID();
+                    //rules.SaveRules(game.rules);
+
                     // Empty the deck and set the player to "none"
                     game.deck.cards = [];
                     game.activePlayer = "none";

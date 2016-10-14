@@ -14,7 +14,7 @@
 
 <div id="angDiv" ng-app="myApp" ng-controller="myCtrl">
     {{myWelcome}}
-<div id="gameDiv" ng-show="ShowGameBoard()">
+<div ng-cloak id="gameDiv" ng-show="ShowGameBoard()">
 <TABLE style="width:100%">
 <!-- Start with game rules -->
 <TR><TD colspan="2" align="center">
@@ -44,7 +44,7 @@
 </TD></TR></TABLE>
 </div>
 
-<div id="rulesDiv" ng-show="ShowRulesWindow()">
+<div ng-cloak id="rulesDiv" ng-show="ShowRulesWindow()">
 <form>
 <fieldset><legend>Playing options</legend>
 <input type ="checkbox" name="doubleaftersplit" ng-checked="{{gameState.houseRules.doubleaftersplit}}"> Double after split
