@@ -12,7 +12,8 @@
   "dependencies": {
     "node-redis": "^0.1.7",
     "redis": "^2.6.2",
-    "node-uuid": "^1.4.7"
+    "node-uuid": "^1.4.7",
+    "blackjack-strategy": "^1.0.0"
   },
   "devDependencies": {}
 }

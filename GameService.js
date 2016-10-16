@@ -2,7 +2,7 @@
 // This is the Game Service module
 //
 
-var suggest = require('blackjack-suggest');
+var suggest = require('blackjack-strategy');
 var utils = require('./utils');
 var rules = require('./rules');
 
@@ -53,7 +53,7 @@ module.exports = {
                     const playerCards = game.playerHands[game.currentPlayerHand].cards.map(card => ((card.rank) > 10 ? 10 : card.rank));
 
                     callback(null, suggest.GetRecommendedPlayerAction(playerCards, ((game.dealerHand.cards[1].rank > 10) ? 10 : game.dealerHand.cards[1].rank),
-                                                                    game.playerHands.length, game.rules, game.possibleActions.indexOf("insurance") > -1));
+                                                                    game.playerHands.length, game.possibleActions.indexOf("insurance") > -1, game.rules));
                 }
                 else
                 {
