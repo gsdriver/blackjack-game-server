@@ -51,9 +51,11 @@ module.exports = {
                 if (game)
                 {
                     const playerCards = game.playerHands[game.currentPlayerHand].cards.map(card => ((card.rank) > 10 ? 10 : card.rank));
+                    var suggestRules = game.rules;
 
+                    suggestRules.strategyComplexity = "advanced";
                     callback(null, suggest.GetRecommendedPlayerAction(playerCards, ((game.dealerHand.cards[1].rank > 10) ? 10 : game.dealerHand.cards[1].rank),
-                                                                    game.playerHands.length, game.possibleActions.indexOf("insurance") > -1, game.rules));
+                                                                    game.playerHands.length, game.possibleActions.indexOf("insurance") < 0, suggestRules));
                 }
                 else
                 {
