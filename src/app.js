@@ -9,7 +9,6 @@ var host = process.env.HOST || 'localhost';
 
 // Helper classes (which will eventually become separate services)
 var gameService = require('./GameService');
-var rules = require('./rules');
 var utils = require('./utils');
 
 // Create the server
@@ -21,54 +20,40 @@ const server = http.createServer((req, res) => {
   // We only support GET
   if (req.method == 'GET')
   {
-      // Let's see if they passed in a user ID
-      var fullbody = "";
+    // Let's see if they passed in a user ID
+    var fullbody = "";
 
-      req.on('data', function(chunk) {
-            // append the current chunk of data to the fullBody variable
-            fullbody += chunk.toString();
+    req.on('data', function(chunk) {
+        // append the current chunk of data to the fullBody variable
+        fullbody += chunk.toString();
+    });
+
+    req.on('end', function() {
+        // Start by reading cookies to see if they have a GUID set (and we can play with state that way)
+        var action = req.url && req.url.substring(1);
+        var userID = ParseUserID(req, fullbody);
+
+        // Allow them to send flushcache in the URL to clear state
+        // Do we have a user ID? If not, generate a new one and set it
+        if ((action == "flushcache") || !userID) {
+            userID = utils.GenerateGUID();
+            res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
+        }
+
+        // We are going to call the Game service to get a JSON representation of the game
+        gameService.GetGameState(userID, function(error, gameState) {
+            // Pass back the error or the game state
+            res.setHeader('Content-Type', 'application/json');
+            if (error) {
+                res.statusCode = 400;                  
+                res.end(JSON.stringify({error: error}))
+            }
+            else {
+                // OK, set the response
+                res.statusCode = 200;
+                res.end(JSON.stringify(gameState));
+            }
         });
-
-      req.on('end', function() {
-          // Start by reading cookies to see if they have a GUID set (and we can play with state that way)
-          var action = req.url && req.url.substring(1);
-          var userID = ParseUserID(req, fullbody);
-
-          // If they asked for the list of available rules, retrieve it
-          if (action == "getallrules") {
-              rules.GetSavedRules(function(error, ruleList) {
-                  res.setHeader('Content-Type', 'application/json');
-                  if (error) {
-                      res.statusCode = 400;
-                      res.end(JSON.stringify({error: error}));
-                  } else {
-                      res.statusCode = 200;
-                      res.end(JSON.stringify(ruleList));
-                  }   
-              });    
-          } else {
-              // Allow them to send flushcache in the URL to clear state
-              // Do we have a user ID? If not, generate a new one and set it
-              if ((action == "flushcache") || !userID) {
-                  userID = utils.GenerateGUID();
-                  res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
-              }
-
-              // We are going to call the Game service to get a JSON representation of the game
-              gameService.GetGameState(userID, function(error, gameState) {
-                  // Pass back the error or the game state
-                  res.setHeader('Content-Type', 'application/json');
-                  if (error) {
-                      res.statusCode = 400;                  
-                      res.end(JSON.stringify({error: error}))
-                  }
-                  else {
-                      // OK, set the response
-                      res.statusCode = 200;
-                      res.end(JSON.stringify(gameState));
-                  }
-              });
-          }
       });
   }
   else if (req.method == 'POST')

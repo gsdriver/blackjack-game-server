@@ -4,13 +4,15 @@
 
 var suggest = require('blackjack-strategy');
 var utils = require('./utils');
-var rules = require('./rules');
 
 // Other configurations
 const cardsBeforeShuffle = 20;
 const startingBankroll = 5000;
 const startingBet = 100;
 const keyPrefix = "game:";
+const maxSplitHands = 4;
+const minBet = 5;
+const maxBet = 1000;
 
 /*
  * Exported functions
@@ -98,16 +100,11 @@ module.exports = {
             switch (action)
             {
                 case "setrules":
-                    // New set of rules - this API just changes the rules in use at this table
-                    // Rather than selecting from a pre-existing set of rules or change the 
-                    // set of rules that are available to all players
-                    game.rules = rules.Validate(value);
-                    game.rules.name = "custom";
-
-                    // TEMP: Let me save some rules out to redis
-                    //game.rules.name = "Atlantic City";
-                    //game.rules.key = utils.GenerateGUID();
-                    //rules.SaveRules(game.rules);
+                    // New set of rules - note Min and max bet aren't changed by user input, nor is max split hands
+                    game.rules = value;
+                    game.rules.minBet = minBet;
+                    game.rules.maxBet = maxBet;
+                    game.rules.maxSplitHands = maxSplitHands;
 
                     // Empty the deck and set the player to "none"
                     game.deck.cards = [];
@@ -366,7 +363,18 @@ function InitializeGame(guid)
                  deck:{cards:[]},
                  dealerHand:{cards:[]},
                  playerHands:[],
-                 rules:{},
+                 rules: {
+                     hitSoft17:false,         // Does dealer hit soft 17
+                     surrender:"late",        // Surrender offered - none, late, or early
+                     double:"any",            // Double rules - none, 10or11, 9or10or11, any
+                     doubleaftersplit:true,   // Can double after split - none, 10or11, 9or10or11, any
+                     resplitAces:false,       // Can you resplit aces
+                     blackjackBonus:0.5,      // Bonus for player blackjack, usually 0.5 or 0.2
+                     numberOfDecks:1,         // Number of decks in play
+                     minBet:5,                // The minimum bet - not configurable
+                     maxBet:1000,             // The maximum bet - not configurable
+                     maxSplitHands:4          // Maximum number of hands you can have due to splits
+                 },
                  activePlayer:"none",
                  currentPlayerHand:0,
                  specialState:null,
@@ -374,9 +382,6 @@ function InitializeGame(guid)
                  lastBet:startingBet,
                  possibleActions:[]
                 };
-
-    // Set default rules
-    game.rules = rules.GetDefaultRules();
 
     // Start by shuffling the deck
     ShuffleDeck(game);
