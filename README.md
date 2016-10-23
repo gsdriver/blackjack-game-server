@@ -1,4 +1,4 @@
-# blackjack-tutor
+# blackjack-game-server
 Node application for a blackjack game that offers advice for different rule sets
 The service returns JSON objects representing the state of the game
 and accepts POST requests to perform actions or return recommended player actions
@@ -21,7 +21,7 @@ gameState = {
                                      //   insurance, noinsurance, surrender, double, split, hit, stand,
                                      //   bet, shuffle, or resetbankroll (after the player runs out of money)
     "dealerHand":{
-            outcome:string,          // The outcome of the dealer's hand after they've peeked at their hole card for a blackjack:
+            outcome:string,          // The outcome after the dealer peeked at their hole card for a blackjack:
                                      //   dealerblackjack, nodealerplayerjack, or playing
             cards:[
                 {rank: integer,      // Rank of the card from 1 (Ace) - 13 (King)
@@ -29,7 +29,8 @@ gameState = {
             ]
         },
     "playerHands":[
-            outcome:string,          // The outcome of the player's hand - playing, surrender, blackjack, win, loss, push
+            outcome:string,          // The outcome of the player's hand:
+                                     //    playing, surrender, blackjack, win, loss, push
             bet:integer,             // The amount bet on this hand
             busted:boolean,          // Whether the player busted this hand
             cards:[
@@ -58,20 +59,20 @@ Each of these commands can only be accepted if set in the possibleActions array 
 gameState associated with this userID.  The return value for all of these is a JSON object representing
 the new game state after taking this action:
 
- * hit - The player will take another card
- * stand - The player will stay on this hand
- * split - The player will split a pair to create an additional hand
- * double - The bet on this hand will be doubled and one additional card will be drawn
- * surrender - The player will surrender this hand
- * insurance - The player wants to take insurance
- * noinsurance - The player doesn't want to take insurance
- * bet - Deal a new hand (this option take a payload of the form "value=X" where X is the amount of the bet)
+ * `hit` - The player will take another card
+ * `stand` - The player will stay on this hand
+ * `split` - The player will split a pair to create an additional hand
+ * `double` - The bet on this hand will be doubled and one additional card will be drawn
+ * `surrender` - The player will surrender this hand
+ * `insurance` - The player wants to take insurance
+ * `noinsurance` - The player doesn't want to take insurance
+ * `bet` - Deal a new hand (this option take a payload of the form "value=X" where X is the amount of the bet)
 
 In addition, you can post the following commands:
 
- * suggest - Make a suggestion of what the user should do for this hand; return value is a JSON object
+ * `suggest` - Make a suggestion of what the user should do for this hand; return value is a JSON object
              with field "suggestion" set to one of the possibleAction values, and "error" set to an error string if applicable
- * setrules - Change the rules in play.  The payload will be an ampersand-delimited string of key/value pairs
+ * `setrules` - Change the rules in play.  The payload will be an ampersand-delimited string of key/value pairs
               corresponding to the `houseRules` field listed above.  Changing the rules forces a shuffle;
               the return value is a JSON object with the new gameState (noting the shuffle)
 
