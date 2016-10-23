@@ -1,7 +1,7 @@
 {
-  "name": "blackjacktutor",
-  "version": "0.0.2",
-  "description": "Blackjack Tutor Program",
+  "name": "blackjack-game-server",
+  "version": "1.0.0",
+  "description": "Blackjack Game Server",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gsdriver/blackjack-tutor"
+    "url": "https://github.com/gsdriver/blackjack-game-server"
   },
   "keywords": [
     "blackjack",
@@ -23,7 +23,7 @@
   "author": "Garrett Vargas <gsdriver@live.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/gsdriver/blackjack-tutor/issues"
+    "url": "https://github.com/gsdriver/blackjack-game-server/issues"
   },
   "dependencies": {
     "node-redis": "^0.1.7",

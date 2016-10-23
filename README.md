@@ -2,7 +2,8 @@
 Node application for a blackjack game that offers advice for different rule sets
 The service returns JSON objects representing the state of the game
 and accepts POST requests to perform actions or return recommended player actions
-You can use in conjunction with the angular.js HTML file provided to play a full game in your browser
+You can use in conjunction with the angular-powered HTML file provided in html\index.htm
+to play a full game in your browser
  
 # Usage
 
@@ -55,8 +56,9 @@ gameState = {
 ```
 
 After retrieving the gameState, the client communicates with the server by issuing a POST command.
-Each of these commands can only be accepted if set in the possibleActions array of the current
-gameState associated with this userID.  The return value for all of these is a JSON object representing
+Each of these commands expects a payload key/value pair containing the userID field from the JSON
+object retrieved from the previous GET command.  The first list of commands can only be accepted 
+if set in the possibleActions array.  The return value for all of these is a JSON object representing
 the new game state after taking this action:
 
  * `hit` - The player will take another card
@@ -66,7 +68,8 @@ the new game state after taking this action:
  * `surrender` - The player will surrender this hand
  * `insurance` - The player wants to take insurance
  * `noinsurance` - The player doesn't want to take insurance
- * `bet` - Deal a new hand (this option take a payload of the form "value=X" where X is the amount of the bet)
+ * `bet` - Deal a new hand (this option will take an additional key/value pair 
+                            of the form "value=X" where X is the amount of the bet)
 
 In addition, you can post the following commands:
 
