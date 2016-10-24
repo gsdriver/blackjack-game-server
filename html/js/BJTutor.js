@@ -3,7 +3,6 @@ var app = angular.module("myApp", []);
 app.controller('myCtrl', function ($scope, $http) {
     $http.get(config.serviceEndpoint)
     .then(function (response) {
-        //$scope.gameState = { "activePlayer": "player", "currentPlayerHand": 0, "bankroll": 4150, "possibleActions": ["hit", "stand", "surrender", "double"], "dealerHand": { "outcome": "playing", "cards": [{ "rank": 0, "suit": "none" }, { "rank": 13, "suit": "hearts"}] }, "playerHands": [{ "bet": 100, "busted": false, "cards": [{ "rank": 3, "suit": "clubs" }, { "rank": 4, "suit": "diamonds"}], "outcome": "playing"}], "lastBet": "100", "houseRules": { "hitSoft17": false, "surrender": "late", "double": "any", "doubleaftersplit": true, "resplitAces": true, "blackjackBonus": "0", "numberOfDecks": 1, "minBet": 5, "maxBet": 1000} };
         $scope.gameState = response.data;
     }, function (response) {
         $scope.gameState = null;
@@ -11,13 +10,14 @@ app.controller('myCtrl', function ($scope, $http) {
 
     $scope.SendAction = function (action) {
         var payload = "userID=" + $scope.gameState.userID;
+        payload += "&action=" + action;
         if (action == 'bet') {
             payload += "&value=" + $scope.gameState.lastBet;
         }
 
         $http.defaults.headers.post["Content-Type"] = "text/plain";
 
-        $http.post(config.serviceEndpoint + action, payload)
+        $http.post(config.serviceEndpoint, payload)
         .then(function (response) {
             // The response is a new game state
             $scope.gameState = response.data;
@@ -32,7 +32,7 @@ app.controller('myCtrl', function ($scope, $http) {
         rulesBody += "&resplitAces=" + $scope.gameState.houseRules.resplitAces + "&blackjackBonus=" + $scope.gameState.houseRules.blackjackBonus + "&numberOfDecks=" + $scope.gameState.houseRules.numberOfDecks;
 
         // And the userID
-        rulesBody += ("&userID=" + $scope.gameState.userID);
+        rulesBody += ("&userID=" + $scope.gameState.userID + "&action=setrules");
 
         // First, hide the rules window
         $scope.showRules = false;
@@ -40,7 +40,7 @@ app.controller('myCtrl', function ($scope, $http) {
         // Now post these new rules to the server
         $http.defaults.headers.post["Content-Type"] = "text/plain";
 
-        $http.post(config.serviceEndpoint + "setrules", rulesBody)
+        $http.post(config.serviceEndpoint, rulesBody)
         .then(function (response) {
             // The response is a new game state
             $scope.gameState = response.data;
@@ -50,7 +50,7 @@ app.controller('myCtrl', function ($scope, $http) {
     };
 
     $scope.GetSuggestion = function () {
-        $http.post(config.serviceEndpoint + "suggest", "userID=" + $scope.gameState.userID)
+        $http.post(config.serviceEndpoint, "userID=" + $scope.gameState.userID + "&action=suggest")
         .then(function (response) {
             // The response is a JSON object with a suggestion
             if (response.data.suggestion) {

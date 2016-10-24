@@ -4,6 +4,8 @@
 
 // HTTP connection
 const http = require('http');
+const querystring = require('querystring');
+
 var port = process.env.PORT || 3000;
 var host = process.env.HOST || 'localhost';
 
@@ -20,46 +22,42 @@ const server = http.createServer((req, res) => {
   // We only support GET
   if (req.method == 'GET')
   {
-    // Let's see if they passed in a user ID
-    var fullbody = "";
+      // The can pass in a GUID either as a querystring, or via cookie - querystring takes precendence
+      var params = querystring.parse(req.url);
+      var action = querystring.action;
+      var userID = querystring.userID;
 
-    req.on('data', function(chunk) {
-        // append the current chunk of data to the fullBody variable
-        fullbody += chunk.toString();
-    });
+      // Start by reading cookies to see if they have a GUID set (and we can play with state that way)
+      if (!userID)
+      {
+          userID = ParseUserID(req, fullbody);
+      }
 
-    req.on('end', function() {
-        // Start by reading cookies to see if they have a GUID set (and we can play with state that way)
-        var action = req.url && req.url.substring(1);
-        var userID = ParseUserID(req, fullbody);
+      // Allow them to send flushcache in the URL to clear state
+      // Do we have a user ID? If not, generate a new one and set it
+      if ((action == "flushcache") || !userID) {
+          userID = utils.GenerateGUID();
+          res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
+      }
 
-        // Allow them to send flushcache in the URL to clear state
-        // Do we have a user ID? If not, generate a new one and set it
-        if ((action == "flushcache") || !userID) {
-            userID = utils.GenerateGUID();
-            res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
-        }
-
-        // We are going to call the Game service to get a JSON representation of the game
-        gameService.GetGameState(userID, function(error, gameState) {
-            // Pass back the error or the game state
-            res.setHeader('Content-Type', 'application/json');
-            if (error) {
-                res.statusCode = 400;                  
-                res.end(JSON.stringify({error: error}))
-            }
-            else {
-                // OK, set the response
-                res.statusCode = 200;
-                res.end(JSON.stringify(gameState));
-            }
-        });
+      // We are going to call the Game service to get a JSON representation of the game
+      gameService.GetGameState(userID, function(error, gameState) {
+          // Pass back the error or the game state
+          res.setHeader('Content-Type', 'application/json');
+          if (error) {
+              res.statusCode = 400;                  
+              res.end(JSON.stringify({error: error}))
+          }
+          else {
+              // OK, set the response
+              res.statusCode = 200;
+              res.end(JSON.stringify(gameState));
+          }
       });
   }
   else if (req.method == 'POST')
   {
       // POST can only be used if we have an assoicated cookie
-      var action = req.url && req.url.substring(1);
       var fullbody = "";
 
       // For a post, we need to read the form data (in case they have bet information)
@@ -74,7 +72,14 @@ const server = http.createServer((req, res) => {
           {
               // If this is a rules push, then we should send in a new rules object
               var value = null;
-              var userID = ParseUserID(req, fullbody);
+              var params = querystring.parse(fullbody);
+              var action = params.action;
+              var userID = params.userID;
+
+              if (!userID)
+              {
+                  userID = ParseUserID(req);
+              }
 
               if (action == "suggest")
               {
@@ -99,7 +104,7 @@ const server = http.createServer((req, res) => {
                   else
                   {
                       // Pull the value out (if it exists)
-                      value = GetKeyValue(fullbody, "value");
+                      value = params.value;
                   }
 
                   // Do we have a cookie? If not, generate a new one and set it
@@ -161,46 +166,19 @@ server.listen(port, host, () => {
   console.log('Server listening on port ' + host + ':' + port);
 });
 
-function GetKeyValue(fullbody, keyname)
-{
-    var value = null;
-
-    // First let's see if there's a userID passed in the body
-    var params = fullbody.split("&");
-    for (var i = 0; i < params.length; i++)
-    {
-        var valuePair = params[i].split("=");
-
-        if (valuePair && (valuePair.length == 2) && (valuePair[0] == keyname))
-        {
-            // We're going to use this
-            value = valuePair[1];
-        }
-    }
-
-    return value;
-}
-
-function ParseUserID(request, fullbody) 
+function ParseUserID(request) 
 {
     var userID = null;
     var list = {};
     var rc = request.headers.cookie;
 
-    // First let's see if there's a userID passed in the body
-    userID = GetKeyValue(fullbody, "userID");
+    // Look at the cookies
+    rc && rc.split(';').forEach(function( cookie ) {
+        var parts = cookie.split('=');
+        list[parts.shift().trim()] = decodeURI(parts.join('='));
+    });
 
-    // If a userID wasn't passed in, look at the cookies instead
-    if (!userID)
-    {
-        rc && rc.split(';').forEach(function( cookie ) {
-            var parts = cookie.split('=');
-            list[parts.shift().trim()] = decodeURI(parts.join('='));
-        });
-
-        userID = list["BJTutorSession"];
-    }
-
+    userID = list["BJTutorSession"];
     return userID;
 }
 
