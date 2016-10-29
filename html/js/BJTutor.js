@@ -1,7 +1,11 @@
 var app = angular.module("myApp", []);
 
 app.controller('myCtrl', function ($scope, $http) {
-    $http.get(config.serviceEndpoint)
+    var serviceUrl = config.serviceEndpoint;
+    if ($scope.gameState && $scope.gameState.userID) {
+        serviceUrl += "get?userID = " + $scope.gameState.userID;
+    }
+    $http.get(serviceUrl)
     .then(function (response) {
         $scope.gameState = response.data;
     }, function (response) {

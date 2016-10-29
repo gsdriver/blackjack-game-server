@@ -23,9 +23,9 @@ const server = http.createServer((req, res) => {
   if (req.method == 'GET')
   {
       // The can pass in a GUID either as a querystring, or via cookie - querystring takes precendence
-      var params = querystring.parse(req.url);
-      var action = querystring.action;
-      var userID = querystring.userID;
+      var params = querystring.parse(req.url, "?");
+      var action = params.action;
+      var userID = params.userID;
 
       // Start by reading cookies to see if they have a GUID set (and we can play with state that way)
       if (!userID)
