@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
           {
               // If this is a rules push, then we should send in a new rules object
               var value = null;
-              var params = querystring.parse(fullbody);
+              var params = JSON.parse(fullbody);
               var action = params.action;
               var userID = params.userID;
 
@@ -99,7 +99,7 @@ const server = http.createServer((req, res) => {
                   if (action == "setrules")
                   {
                       // value will be a rules object
-                      value = TextToRules(fullbody);
+                      value = params;
                   }
                   else
                   {
@@ -182,61 +182,3 @@ function ParseUserID(request)
     return userID;
 }
 
-function TextToRules(ruleText)
-{
-    var rules = {hitSoft17:false, surrender:"late", double:"any", doubleaftersplit:true, 
-             resplitAces:false, blackjackBonus:0.5, numberOfDecks:1, minBet:0, maxBet:0 };
-    var params = ruleText.split("&");
-
-    for (var i = 0; i < params.length; i++)
-    {
-        var valuePair = params[i].split("=");
-
-        if (valuePair && (valuePair.length == 2))
-        {
-            switch (valuePair[0])
-            {
-                case "minBet":
-                    rules.minBet = valuePair[1];
-                    break;
-
-                case "maxBet":
-                    rules.maxBet = valuePair[1];
-                    break;
-
-                case "hitSoft17":
-                    rules.hitSoft17 = valuePair[1];
-                    break;
-
-                case "surrender":
-                    rules.surrender = valuePair[1];
-                    break;
-
-                case "double":
-                    rules.double = valuePair[1];
-                    break;
-
-                case "doubleaftersplit":
-                    rules.doubleaftersplit = valuePair[1];
-                    break;
-
-                case "resplitAces":
-                    rules.resplitAces = valuePair[1];
-                    break;
-
-                case "blackjackBonus":
-                    rules.blackjackBonus = valuePair[1];
-                    break;
-
-                case "numberOfDecks":
-                    rules.numberOfDecks = Number(valuePair[1]);
-                    break;
-
-                default:
-                    break;
-            }
-        }
-    }
-    
-    return rules;
-}
