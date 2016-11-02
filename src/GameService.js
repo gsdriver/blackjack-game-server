@@ -290,6 +290,18 @@ function GetGameJSONResponse(game)
         gameState.dealerHand.cards.push(card);
     }
 
+    // Also, set the total for the dealer and player hands
+    var dealerTotal = utils.HandTotal(game.dealerHand.cards);
+    gameState.dealerHand.total = dealerTotal.total;
+    gameState.dealerHand.soft = dealerTotal.soft;
+    for (i = 0; i < gameState.playerHands.length; i++)
+    {
+        var playerTotal = utils.HandTotal(game.playerHands[i].cards);
+
+        game.playerHands[i].total = playerTotal.total;
+        game.playerHands[i].soft = playerTotal.soft;
+    }
+
     return gameState;
 }
 
