@@ -100,13 +100,10 @@ module.exports = {
             switch (action)
             {
                 case "setrules":
-                    // New set of rules - note Min and max bet aren't changed by user input, nor is max split hands
-                    game.rules = value;
-                    game.rules.minBet = minBet;
-                    game.rules.maxBet = maxBet;
-                    game.rules.maxSplitHands = maxSplitHands;
+                    // New set of rules
+                    game.rules = ChangeRules(game.rules, value);
 
-                    // Empty the deck and set the player to "none"
+                    // Empty the deck and set the player to "none" to force a reshuffle
                     game.deck.cards = [];
                     game.activePlayer = "none";
                     break;
@@ -679,4 +676,26 @@ function DetermineWinner(game, playerHand)
             // I already took the money off the bankroll, you don't get any back
             break;
     }
+}
+
+/*
+ * Changes the rules of the game - note that any rule that isn't set in the
+ * new structure is inherited from the old structure
+ */
+function ChangeRules(oldRules, newRules)
+{
+    var rules = {};
+
+    rules.hitSoft17 = (newRules.hasOwnProperty("hitSoft17") ? newRules.hitSoft17 : oldRules.hitSoft17);
+    rules.surrender = (newRules.hasOwnProperty("surrender") ? newRules.surrender : oldRules.surrender);
+    rules.double = (newRules.hasOwnProperty("double") ? newRules.double : oldRules.double);
+    rules.doubleaftersplit = (newRules.hasOwnProperty("doubleaftersplit") ? newRules.doubleaftersplit : oldRules.doubleaftersplit);
+    rules.resplitAces = (newRules.hasOwnProperty("resplitAces") ? newRules.resplitAces : oldRules.resplitAces);
+    rules.blackjackBonus = (newRules.hasOwnProperty("blackjackBonus") ? newRules.blackjackBonus : oldRules.blackjackBonus);
+    rules.numberOfDecks = (newRules.hasOwnProperty("numberOfDecks") ? newRules.numberOfDecks : oldRules.numberOfDecks);
+    rules.minBet = (newRules.hasOwnProperty("minBet") ? newRules.minBet : oldRules.minBet);
+    rules.maxBet = (newRules.hasOwnProperty("maxBet") ? newRules.maxBet : oldRules.maxBet);
+    rules.maxSplitHands = (newRules.hasOwnProperty("maxSplitHands") ? newRules.maxSplitHands : oldRules.maxSplitHands);
+
+    return rules;
 }
