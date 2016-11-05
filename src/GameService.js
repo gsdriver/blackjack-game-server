@@ -288,7 +288,7 @@ function GetGameJSONResponse(game)
     }
 
     // Also, set the total for the dealer and player hands
-    var dealerTotal = utils.HandTotal(game.dealerHand.cards);
+    var dealerTotal = utils.HandTotal(gameState.dealerHand.cards);
     gameState.dealerHand.total = dealerTotal.total;
     gameState.dealerHand.soft = dealerTotal.soft;
     for (i = 0; i < gameState.playerHands.length; i++)
