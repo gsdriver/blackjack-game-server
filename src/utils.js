@@ -28,6 +28,9 @@ module.exports = {
     ExpireFromCache: function (key, timeout) {
         gameCache.expire(key, timeout);
     },
+    RemoveKeyFromCache : function (key) {
+        gameCache.del(key);
+    },
     ReadAllKeys: function (prefix, callback) {
         gameCache.keys(prefix, function (error, keys) {
             if (error) {

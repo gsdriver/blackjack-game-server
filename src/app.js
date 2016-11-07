@@ -34,8 +34,16 @@ const server = http.createServer((req, res) => {
       }
 
       // Allow them to send flushcache in the URL to clear state
+      if (params.hasOwnProperty("/flushcache") && userID)
+      {
+          // Delete this entry from the cache
+          console.log("Flushing " + userID);
+          gameService.RemoveKey(userID);
+          userID = null;
+      }
+
       // Do we have a user ID? If not, generate a new one and set it
-      if ((action == "flushcache") || !userID) {
+      if (!userID) {
           userID = utils.GenerateGUID();
           res.setHeader('Set-Cookie', 'BJTutorSession=' + userID);
       }

@@ -37,6 +37,9 @@ module.exports = {
             callback(null, GetGameJSONResponse(game));
         });
     },
+    RemoveKey: function(guid) {
+        utils.RemoveKeyFromCache(keyPrefix + guid);
+    },
     GetRecommendedAction: function (guid, callback) {
         var game; // The internal, full state of the game
 
