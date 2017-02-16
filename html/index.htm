@@ -34,7 +34,7 @@
 <!-- Possible actions-->
 <form ng-repeat-start="action in gameState.possibleActions">
 <H2 ng-show="action == 'bet'">Place your bet:</H2>
-<input ng-show="action == 'bet'" type ="number" value="{{gameState.lastBet}}" name="value">
+<input ng-show="action == 'bet'" type ="number" ng-model="gameState.lastBet" name="value">
 <input type="submit" ng-click="SendAction(action)" value={{NextActionText(action)}}>
 </form><BR><BR ng-repeat-end>
 <!-- Don't forget suggest -->
