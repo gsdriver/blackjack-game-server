@@ -34,14 +34,14 @@ const server = http.createServer((req, res) => {
       }
 
       // Allow them to send flushcache in the URL to clear state
-      if ((params["/flushcache"] === '') && userID)
+      if (Object.prototype.hasOwnProperty.call(params, "/flushcache") && userID)
       {
           // Delete this entry from the cache
           console.log("Flushing " + userID);
           gameService.RemoveKey(userID);
           userID = null;
       }
-      else if ((params["/fullstate"] === '') && userID)
+      else if (Object.prototype.hasOwnProperty.call(params, "/fullstate") && userID)
       {
           // Return the whole thing from Redis
           console.log("Copying " + userID);
