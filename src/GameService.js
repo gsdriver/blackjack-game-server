@@ -37,6 +37,15 @@ module.exports = {
             callback(null, GetGameJSONResponse(game));
         });
     },
+    GetFullGame: function (guid, callback) {
+        var game; // The internal, full state of the game
+
+        utils.ReadFromCache(keyPrefix + guid, function(error, result)
+        {
+            game = ConvertCacheResultToGame(result);
+            callback(null, game);
+        });
+    },
     RemoveKey: function(guid) {
         utils.RemoveKeyFromCache(keyPrefix + guid);
     },

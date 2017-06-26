@@ -34,12 +34,30 @@ const server = http.createServer((req, res) => {
       }
 
       // Allow them to send flushcache in the URL to clear state
-      if (params.hasOwnProperty("/flushcache") && userID)
+      if ((params["/flushcache"] === '') && userID)
       {
           // Delete this entry from the cache
           console.log("Flushing " + userID);
           gameService.RemoveKey(userID);
           userID = null;
+      }
+      else if ((params["/fullstate"] === '') && userID)
+      {
+          // Return the whole thing from Redis
+          console.log("Copying " + userID);
+          gameService.GetFullGame(userID, function(error, game) {
+              res.setHeader('Content-Type', 'application/json');
+              if (error) {
+                  res.statusCode = 400;
+                  res.end(JSON.stringify({error: error}))
+              }
+              else {
+                  // OK, set the response
+                  res.statusCode = 200;
+                  res.end(JSON.stringify(game));
+              }
+          });
+          return;
       }
 
       // Do we have a user ID? If not, generate a new one and set it
